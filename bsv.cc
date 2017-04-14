@@ -265,7 +265,6 @@ struct BsvFrontend : public Pass {
 
     std::string command = "exec 2>&1; ";
     command += compiler;
-    command += stringf(" -licenseWarning 3"); // TODO FIXME: annoying
     command += stringf(" -vdir '%s'", temp_vdir.c_str());
     command += stringf(" -bdir '%s'", temp_odir.c_str());
 
