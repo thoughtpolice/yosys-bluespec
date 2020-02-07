@@ -1,0 +1,5 @@
+# see 'man git-shortlog' for more details
+# formats: Proper Name [<proper@email.xx> [Commit Name]] <commit@email.xx>
+#
+# Show result: git shortlog -sne
+# Should be empty list: git shortlog -se | cut -f2 | cut -d'<' -f1 | uniq -d
