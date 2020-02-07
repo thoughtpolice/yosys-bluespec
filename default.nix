@@ -23,5 +23,6 @@ stdenv.mkDerivation {
   buildInputs = [ yosys readline zlib ];
   nativeBuildInputs = [ pkgconfig ];
 
+  doCheck = false; # [NOTE]: nixpkgs pr #79468
   makeFlags = [ "PREFIX=$(out)/share/yosys/plugins" ];
 }

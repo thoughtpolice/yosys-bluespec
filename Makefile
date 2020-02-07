@@ -25,6 +25,9 @@ install: $(SO)
 uninstall:
 	rm -f $(FINALDEST)/$(SO)
 
+check: $(SO)
+	yosys -s t/test.yosys
+
 clean:
 	rm -f *.d *.o *.so *~
 
