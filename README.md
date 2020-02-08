@@ -5,7 +5,7 @@
 ![Continuous Integration]
 ![License]
 
-[Continuous Integration]: ![CI](https://github.com/thoughtpolice/yosys-bsv/workflows/CI/badge.svg)
+[Continuous Integration]: https://github.com/thoughtpolice/yosys-bsv/workflows/CI/badge.svg
 [License]:        https://img.shields.io/badge/license-ISC%20-blueviolet.svg
 
 <strong>
