@@ -3,10 +3,13 @@
 # Bluespec integration for Yosys
 
 ![Continuous Integration]
+[![Bors enabled]](https://app.bors.tech/repositories/23168)
+
 ![License]
 
+[License]:                https://img.shields.io/badge/license-ISC%20-blueviolet.svg
+[Bors enabled]:           https://bors.tech/images/badge_small.svg
 [Continuous Integration]: https://github.com/thoughtpolice/yosys-bsv/workflows/CI/badge.svg
-[License]:        https://img.shields.io/badge/license-ISC%20-blueviolet.svg
 
 <strong>
   <a href="https://github.com/yosyshq">Yosys HQ</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;<a href="https://github.com/B-Lang-org/bsc">Bluespec</a>
