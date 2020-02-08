@@ -1,0 +1,11 @@
+status = [ "build all%" ]
+block_labels = [ "S-wip", "S-nomerge" ]
+
+delete_merged_branches = true
+timeout_sec = 7200 # two hours
+
+## [NOTE] (aseipp): these can't be enabled because you can't self-review or
+## self-approve things you're a codeowner of, and bors does not like that...
+
+# required_approvals = 1
+# use_codeowners = true
