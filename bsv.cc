@@ -27,12 +27,22 @@ std::string get_compiler(void)
 */
 std::string get_bluespecdir(void)
 {
-  char* e = getenv("BLUESPECDIR");
+  // [FIXME] (aseipp): we currently just pull `bluectl` out of the environment
+  // without allowing an override (cf BSC_PATH). ideally we should fix bsc to
+  // give us this path directly anyway
+  std::string command = "echo 'puts $env(BLUESPECDIR)' | bluetcl";
+  std::string libdir = "";
 
-  if (e == nullptr)
-    return "";
-  else
-    return std::string(e);
+  int ret = run_command(command, [&](const std::string& line) { libdir = line; });
+  if (ret != 0)
+    log_error("Execution of command \"%s\" failed: return code %d\n",
+              command.c_str(), ret);
+
+  if (!libdir.empty() && libdir[libdir.length()-1] == '\n') {
+    libdir.erase(libdir.length()-1);
+  }
+
+  return libdir;
 }
 
 /*
@@ -101,8 +111,6 @@ struct BsvFrontend : public Pass {
   BsvFrontend() : Pass("bsv", "load BlueSpec Verilog designs using bsc") {}
   virtual void help()
   {
-    std::string bluespecdir = get_bluespecdir();
-
     log("\n");
     log("    bsv [options] <bsv-file>\n");
     log("\n");
@@ -158,6 +166,7 @@ struct BsvFrontend : public Pass {
     log("        hierarchy pass.\n");
     log("\n");
 
+    std::string bluespecdir = get_bluespecdir();
     if (bluespecdir != "") {
       const char* s = bluespecdir.c_str();
       log("        Currently, BLUESPECDIR is set to the path:\n");
@@ -197,10 +206,9 @@ struct BsvFrontend : public Pass {
     std::string top_entity;
     std::string top_package;
     std::string compiler = get_compiler();
-    std::string bluespecdir = get_bluespecdir();
     bool no_bsv_autoload = false;
 
-    if (bluespecdir == "")
+    if (get_bluespecdir() == "")
       log_cmd_error("The BLUESPECDIR environment variable isn't defined.\n"
                     "This indicates BlueSpec might not be installed or\n"
                     "not installed correctly. BLUESPECDIR is needed\n"
