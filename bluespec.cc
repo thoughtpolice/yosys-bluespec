@@ -1,5 +1,5 @@
 /*
-** bsv.cc -- a convenient BlueSpec Verilog synthesis plugin for Yosys.
+** bluespec.cc -- a BlueSpec Verilog frontend plugin for Yosys.
 ** Copyright (C) 2017 Austin Seipp. See Copyright Notice in LICENSE.txt
 */
 #include "kernel/yosys.h"
@@ -108,11 +108,11 @@ void expand_bsv_libs(RTLIL::Design *design, RTLIL::Module *module) {
 }
 
 struct BsvFrontend : public Pass {
-  BsvFrontend() : Pass("bsv", "load BlueSpec Verilog designs using bsc") {}
+  BsvFrontend() : Pass("read_bluespec", "compile and load Bluespec modules") {}
   virtual void help()
   {
     log("\n");
-    log("    bsv [options] <bsv-file>\n");
+    log("    read_bluespec [options] <bsv-file>\n");
     log("\n");
     log("This command reads the given BlueSpec Verilog file, compiles\n");
     log("them using the 'bsc' compiler, and then reads the Verilog using\n");
