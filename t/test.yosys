@@ -1,4 +1,4 @@
-plugin -i bsv.so
-bsv -top mkTest t/GCD.bsv
+plugin -i bluespec.so
+read_bluespec -top mkTest t/GCD.bsv
 prep
 write_verilog -attr2comment t/GCD.v

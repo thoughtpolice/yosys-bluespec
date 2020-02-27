@@ -1,3 +1,4 @@
+PLUGIN=bluespec
 YOSYS_CONFIG?=yosys-config
 
 CXX=$(shell $(YOSYS_CONFIG) --cxx)
@@ -7,9 +8,9 @@ LDLIBS=$(shell $(YOSYS_CONFIG) --ldlibs)
 
 PREFIX?=$(shell $(YOSYS_CONFIG) --datdir)/plugins
 
-SRC=bsv.cc
-OBJ=bsv.o
-SO=bsv.so
+SRC=$(PLUGIN).cc
+OBJ=$(PLUGIN).o
+SO=$(PLUGIN).so
 
 FINALDEST=$(DESTDIR)$(PREFIX)
 
