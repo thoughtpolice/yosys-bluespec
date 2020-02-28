@@ -113,62 +113,46 @@ void expand_bsv_libs(RTLIL::Design *design, RTLIL::Module *module) {
 }
 
 struct BsvFrontend : public Pass {
-  BsvFrontend() : Pass("read_bluespec", "compile and load Bluespec modules") {}
+  BsvFrontend() : Pass("read_bluespec", "typecheck, compile, and load Bluespec code") {}
   virtual void help()
   {
     log("\n");
-    log("    read_bluespec [options] <bsv-file>\n");
+    log("    read_bluespec [options] source.{bs,bsv}\n");
     log("\n");
-    log("This command reads the given BlueSpec Verilog file, compiles\n");
-    log("them using the 'bsc' compiler, and then reads the Verilog using\n");
-    log("Yosys Verilog frontend.\n");
+
+    log("Load modules from a Bluespec package. This uses the 'bsc' compiler in\n");
+    log("order to typecheck and compile the source code. Bluespec Haskell files\n");
+    log("(with .bs extension) and Bluespec SystemVerilog (resp. bsv) are supported.\n");
     log("\n");
-    log("The given input .bsv will be compiled using the bsv 'recursive'\n");
-    log("compilation mode, which will compile every module automatically.\n");
-    log("Therefore, you should run the 'bsv' command on the top-level\n");
-    log("module for your design, and specify the top BSV module output\n");
-    log("with the -top option. This module should be synthesizable.\n");
+
+    log("Compilation follows basic Bluespec rules: every individual module inside\n");
+    log("a package marked with a 'synthesize' attribute will be compiled to an\n");
+    log("individual RTL module, and each such module will be read into the current\n");
+    log("design.\n");
     log("\n");
+
+    log("By default, the frontend assumes the modules you want to synthesize are\n");
+    log("marked with 'synthesize' attributes, and will incorporate all such modules\n");
+    log("into the design by default, but if you wish to leave them un-attributed\n");
+    log("in the source code, or for simplicity, you can use the '-top' option to\n");
+    log("compile and read a single module from the source.\n");
+    log("\n");
+
     log("    -top <top-entity-name>\n");
     log("        The name of the top entity. This option is mandatory.\n");
     log("\n");
+
     log("    -no-autoload-bsv-prims\n");
-    log("        Do not incorporate the BlueSpec primitives for Verilog when\n");
-    log("        performing synthesis. Compiled BlueSpec designs use\n");
-    log("        the included set of primitives bundled with the compiler\n");
-    log("        and written in Verilog. For a full synthesis run, you will\n");
-    log("        need these libraries available.\n");
-    log("\n");
-    log("        By default, this frontend will load all Verilog designs\n");
-    log("        emitted by the BlueSpec compiler, then examine the RTL\n");
-    log("        in order to find unresolved modules used by active cells.\n");
-    log("        Then these modules will be searched for in the BlueSpec\n");
-    log("        Verilog primitive directory, under $BLUESPECDIR/Verilog\n");
-    log("\n");
-    log("        If a BSV design emits Verilog using an unresolved module\n");
-    log("        'FOO', the plugin will attempt to load the file\n");
-    log("        $BLUESPECDIR/Verilog/FOO.v in order to resolve it.\n");
-    log("        If this file does not implement the needed module, an\n");
-    log("        error will occur.\n");
-    log("\n");
-    log("        Conceptually, this option is very similar to an automatic\n");
-    log("        version of the '-libdir' option for the 'hierarchy' pass,\n");
-    log("        tailored for BlueSpec designs. However, when you are using\n");
-    log("        custom Verilog or integrating BSV into bespoke designs,\n");
-    log("        or implementing BSV interfaces with your own IP cores\n");
-    log("        and/or Verilog, this automation may get in the way.\n");
+    log("        Do not incorporate Verilog primitives during module compilation\n");
+    log("        Compiled Bluespec designs use the included set of primitives\n");
+    log("        written in Verilog and bundled with the compiler. For a full\n");
+    log("        synthesis run, you will need these libraries available.\n");
     log("\n");
     log("        If you pass the -no-autoload-bsv-prims flag, you will need\n");
-    log("        to later on specify where to find the missing BSV Verilog\n");
-    log("        primitives. This can be done using 'hierarchy -libdir' as\n");
-    log("        stated before, using the $BLUESPECDIR/Verilog directory.\n");
+    log("        to later on specify where to find the missing Verilog\n");
+    log("        primitives. This can be done using the 'hierarchy -libdir' pass\n");
+    log("        using the Bluespec compiler installation 'Verilog' subdirectory.\n");
     log("        Alternatively, you can load the required modules manually.\n");
-    log("\n");
-    log("        NOTE: while 'hierarchy -libdir' is the recommended way\n");
-    log("        of specifying how to load primitives manually, it is not\n");
-    log("        exposed by the default 'synth' script. Thus, you will need\n");
-    log("        to run 'hierarchy' first, before 'synth' runs its own\n");
-    log("        hierarchy pass.\n");
     log("\n");
 
     std::string bluespecdir = get_bluespecdir();
