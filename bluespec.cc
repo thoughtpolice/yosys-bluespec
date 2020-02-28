@@ -139,7 +139,10 @@ struct BsvFrontend : public Pass {
     log("\n");
 
     log("    -top <top-entity-name>\n");
-    log("        The name of the top entity. This option is mandatory.\n");
+    log("        By default, the frontend loads all individual modules marked with\n");
+    log("        'synthesize' attributes. If none exist, or you wish to only use\n");
+    log("        one particular module, this option can be used to select a single\n");
+    log("        Bluespec module to compile\n");
     log("\n");
 
     log("    -no-autoload-bsv-prims\n");
@@ -244,8 +247,6 @@ struct BsvFrontend : public Pass {
 
     if (argidx == args.size())
       cmd_error(args, argidx, "Missing filename for top-level module.");
-    if (top_entity.empty())
-      log_cmd_error("Missing -top option.\n");
 
     top_package = args[argidx];
     log_header(design, "Compiling Bluespec package %s\n", top_package.c_str());
@@ -266,7 +267,8 @@ struct BsvFrontend : public Pass {
       command = command + " " + a;
 
     command += stringf(" -verilog");
-    command += stringf(" -g '%s'", top_entity.c_str());
+    if (!top_entity.empty())
+      command += stringf(" -g '%s'", top_entity.c_str());
     command += stringf(" -u '%s'", top_package.c_str());
 
     log("Running \"%s\"...\n", command.c_str());
