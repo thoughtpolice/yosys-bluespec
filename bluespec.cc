@@ -1,5 +1,5 @@
 /*
-** bluespec.cc -- a BlueSpec Verilog frontend plugin for Yosys.
+** bluespec.cc -- a Bluespec frontend for Yosys
 ** Copyright (C) 2017 Austin Seipp. See Copyright Notice in LICENSE.txt
 */
 #include "kernel/yosys.h"
@@ -7,9 +7,14 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+void read_verilog(RTLIL::Design *design, std::istream *ff, std::string f)
+{
+  Frontend::frontend_call(design, ff, f, "verilog");
+}
+
 /*
 ** Retrieve the value of the BSC_PATH environment variable. If not set,
-** return the default "bsc" command for invoking the BlueSpec compiler.
+** return the default "bsc" command for invoking the Bluespec compiler.
 */
 std::string get_compiler(void)
 {
@@ -46,7 +51,7 @@ std::string get_bluespecdir(void)
 }
 
 /*
-** Expand unresolved BlueSpec Verilog primitives to their Verilog counterparts
+** Expand unresolved Bluespec Verilog primitives to their Verilog counterparts
 ** under $BLUESPECDIR.
 **
 ** This code is based off the 'hierarchy' pass, and ideally, we'd use hierarchy
@@ -76,14 +81,14 @@ void expand_bsv_libs(RTLIL::Design *design, RTLIL::Module *module) {
       if (cell->type[0] == '$')
         continue;
 
-      // And try to find/load the BlueSpec primitive
+      // And try to find/load the Bluespec primitive
       auto unadorned = RTLIL::unescape_id(cell->type);
       auto filename  = bluespecdir + "/Verilog/" + unadorned + ".v";
       log("Looking for Verilog module '%s' in $BLUESPECDIR/Verilog/%s.v\n",
           unadorned.c_str(), unadorned.c_str());
 
       if (check_file_exists(filename)) {
-        Frontend::frontend_call(design, NULL, filename, "verilog");
+        read_verilog(design, NULL, filename);
         goto loaded;
       }
 
@@ -300,7 +305,7 @@ struct BsvFrontend : public Pass {
       if (ff.fail())
         log_error("Can't open bsc output file `%s'!\n", f.c_str());
 
-      Frontend::frontend_call(design, &ff, f, "verilog");
+      read_verilog(design, &ff, f);
     }
 
     // Read all of the BSV Verilog libraries, unless told otherwise
