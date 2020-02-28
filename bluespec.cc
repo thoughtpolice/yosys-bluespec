@@ -7,9 +7,12 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-void read_verilog(RTLIL::Design *design, std::istream *ff, std::string f)
+void read_verilog(RTLIL::Design *design, std::istream *ff, std::string f, std::string reset_string)
 {
-  Frontend::frontend_call(design, ff, f, "verilog");
+  std::vector<std::string> args;
+  args.push_back("verilog");
+  args.push_back(reset_string);
+  Frontend::frontend_call(design, ff, f, args);
 }
 
 /*
@@ -66,7 +69,7 @@ std::string get_bluespecdir(void)
 ** Thus, this is a simple, one-shot and convenient approach for users, which
 ** automatically loads BSV primitives.
 */
-void expand_bsv_libs(RTLIL::Design *design, RTLIL::Module *module) {
+void expand_bsv_libs(RTLIL::Design *design, RTLIL::Module *module, std::string reset) {
   std::string bluespecdir = get_bluespecdir();
 
   // Look over every cell...
@@ -88,7 +91,7 @@ void expand_bsv_libs(RTLIL::Design *design, RTLIL::Module *module) {
           unadorned.c_str(), unadorned.c_str());
 
       if (check_file_exists(filename)) {
-        read_verilog(design, NULL, filename);
+        read_verilog(design, NULL, filename, reset);
         goto loaded;
       }
 
@@ -145,6 +148,21 @@ struct BsvFrontend : public Pass {
     log("        Bluespec module to compile\n");
     log("\n");
 
+    log("    -reset {pos,neg}\n");
+    log("        Specify the module reset sensitivity. Compiled Bluespec designs\n");
+    log("        can use both positive or negative reset values for DUT reset.\n");
+    log("        When compiling a Bluespec design, this option can be used to\n");
+    log("        choose which to use. Note that this choice applies to all\n");
+    log("        Bluespec code.\n");
+    log("        \n");
+    log("        A positive reset value means that a value of '1' applied to the\n");
+    log("        reset line will put the device into reset. A negative reset by\n");
+    log("        contrast requires a '0' to put the device into reset.\n");
+    log("        \n");
+    log("        By default, compiled Bluespec modules use negative reset: a\n");
+    log("        value of 0 will put the device into reset.\n");
+    log("\n");
+
     log("    -no-autoload-bsv-prims\n");
     log("        Do not incorporate Verilog primitives during module compilation\n");
     log("        Compiled Bluespec designs use the included set of primitives\n");
@@ -197,6 +215,7 @@ struct BsvFrontend : public Pass {
     std::string top_package;
     std::string compiler = get_compiler();
     bool no_bsv_autoload = false;
+    std::string reset_string = "-DBSV_NEGATIVE_RESET=1";
 
     if (get_bluespecdir() == "")
       log_cmd_error("The BLUESPECDIR environment variable isn't defined.\n"
@@ -213,6 +232,19 @@ struct BsvFrontend : public Pass {
     for (argidx = 1; argidx < args.size(); argidx++) {
       if (args[argidx] == "-top" && argidx+1 < args.size()) {
         top_entity = args[++argidx];
+        continue;
+      }
+
+      if (args[argidx] == "-reset" && argidx+1 < args.size()) {
+        if (args[argidx+1] == "pos") {
+          reset_string = "-DBSV_POSITIVE_RESET=1";
+        } else if (args[argidx+1] == "neg") {
+          reset_string = "-DBSV_NEGATIVE_RESET=1";
+        } else {
+          log_cmd_error("Invalid argument for -reset\n");
+        }
+
+        ++argidx;
         continue;
       }
 
@@ -288,7 +320,7 @@ struct BsvFrontend : public Pass {
       if (ff.fail())
         log_error("Can't open bsc output file `%s'!\n", f.c_str());
 
-      read_verilog(design, &ff, f);
+      read_verilog(design, &ff, f, reset_string);
     }
 
     // Read all of the BSV Verilog libraries, unless told otherwise
@@ -303,7 +335,7 @@ struct BsvFrontend : public Pass {
         used_modules.insert(mod);
 
       for (const auto& mod : used_modules)
-        expand_bsv_libs(design, mod);
+        expand_bsv_libs(design, mod, reset_string);
     } else {
       log_header(design, "Not attempting autoload of BSV primitives.\n");
     }
