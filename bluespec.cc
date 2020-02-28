@@ -180,13 +180,14 @@ struct BsvFrontend : public Pass {
       log("            '%s/Verilog'\n",s);
     } else {
       log("        WARNING: BLUESPECDIR is not set! This might mean that\n");
-      log("        BlueSpec isn't installed, or is installed incorrectly.\n");
+      log("        Bluespec isn't installed, or is installed incorrectly.\n");
       log("        This plugin will not work as a result, failing with a\n");
       log("        really huge and cool explosion sound when you use it.\n");
     }
 
     log("\n");
-    log("        The value of this flag is false by default.\n");
+    log("        The value of this flag is false by default: compiled Bluespec\n");
+    log("        modules will have Verilog primitives loaded automatically.\n");
     log("\n");
     log("The following options are passed as-is to bsc:\n");
     log("\n");
@@ -196,12 +197,9 @@ struct BsvFrontend : public Pass {
     log("    -show-schedule\n");
     log("    -show-stats\n");
     log("\n");
-    log("By default, the BlueSpec compiler 'bsc' is invoked out of $PATH,\n");
+    log("By default, the Bluespec compiler 'bsc' is invoked out of $PATH,\n");
     log("but you may specify the BSC_PATH environment variable to specify\n");
     log("the exact location of the compiler.\n");
-    log("\n");
-    log("Visit http://www.bluespec.com and contact BlueSpec, Inc. for more\n");
-    log("information on BlueSpec Verilog.\n");
     log("\n");
   }
 
@@ -215,12 +213,12 @@ struct BsvFrontend : public Pass {
 
     if (get_bluespecdir() == "")
       log_cmd_error("The BLUESPECDIR environment variable isn't defined.\n"
-                    "This indicates BlueSpec might not be installed or\n"
+                    "This indicates Bluespec might not be installed or\n"
                     "not installed correctly. BLUESPECDIR is needed\n"
                     "to locate Verilog primitives correctly. Exiting\n"
                     "without performing synthesis.\n");
 
-    log_header(design, "Executing the BlueSpec compiler (with '%s').\n",
+    log_header(design, "Executing the Bluespec compiler (with '%s').\n",
                compiler.c_str());
     log_push();
 
@@ -266,14 +264,13 @@ struct BsvFrontend : public Pass {
       log_cmd_error("Missing -top option.\n");
 
     top_package = args[argidx];
-    log_header(design, "Compiling BlueSpec module %s:%s to Verilog.\n",
-               top_package.c_str(), top_entity.c_str());
+    log_header(design, "Compiling Bluespec package %s\n", top_package.c_str());
 
     // Run the Bluespec compiler
     std::string temp_vdir = make_temp_dir("/tmp/yosys-bsv-v-XXXXXX");
     std::string temp_odir = make_temp_dir("/tmp/yosys-bsv-o-XXXXXX");
 
-    log("Compiling BlueSpec objects/verilog to %s:%s\n",
+    log("Compiling Bluespec objects/verilog to %s:%s\n",
         temp_odir.c_str(), temp_vdir.c_str());
 
     std::string command = "exec 2>&1; ";
@@ -295,7 +292,7 @@ struct BsvFrontend : public Pass {
                 command.c_str(), ret);
 
     // Read all of the Verilog output
-    log_header(design, "Reading BlueSpec Verilog output.\n");
+    log_header(design, "Reading Bluespec compiler output.\n");
 
     auto files = glob_filename(temp_vdir + "/*.v");
     for (const auto& f : files) {
