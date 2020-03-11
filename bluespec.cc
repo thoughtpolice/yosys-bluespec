@@ -1,5 +1,5 @@
 /*
-** bluespec.cc -- a BlueSpec Verilog frontend plugin for Yosys.
+** bluespec.cc -- a Bluespec frontend for Yosys
 ** Copyright (C) 2017 Austin Seipp. See Copyright Notice in LICENSE.txt
 */
 #include "kernel/yosys.h"
@@ -7,9 +7,17 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+void read_verilog(RTLIL::Design *design, std::istream *ff, std::string f, std::string reset_string)
+{
+  std::vector<std::string> args;
+  args.push_back("verilog");
+  args.push_back(reset_string);
+  Frontend::frontend_call(design, ff, f, args);
+}
+
 /*
 ** Retrieve the value of the BSC_PATH environment variable. If not set,
-** return the default "bsc" command for invoking the BlueSpec compiler.
+** return the default "bsc" command for invoking the Bluespec compiler.
 */
 std::string get_compiler(void)
 {
@@ -46,7 +54,7 @@ std::string get_bluespecdir(void)
 }
 
 /*
-** Expand unresolved BlueSpec Verilog primitives to their Verilog counterparts
+** Expand unresolved Bluespec Verilog primitives to their Verilog counterparts
 ** under $BLUESPECDIR.
 **
 ** This code is based off the 'hierarchy' pass, and ideally, we'd use hierarchy
@@ -61,7 +69,7 @@ std::string get_bluespecdir(void)
 ** Thus, this is a simple, one-shot and convenient approach for users, which
 ** automatically loads BSV primitives.
 */
-void expand_bsv_libs(RTLIL::Design *design, RTLIL::Module *module) {
+void expand_bsv_libs(RTLIL::Design *design, RTLIL::Module *module, std::string reset) {
   std::string bluespecdir = get_bluespecdir();
 
   // Look over every cell...
@@ -76,14 +84,14 @@ void expand_bsv_libs(RTLIL::Design *design, RTLIL::Module *module) {
       if (cell->type[0] == '$')
         continue;
 
-      // And try to find/load the BlueSpec primitive
+      // And try to find/load the Bluespec primitive
       auto unadorned = RTLIL::unescape_id(cell->type);
       auto filename  = bluespecdir + "/Verilog/" + unadorned + ".v";
       log("Looking for Verilog module '%s' in $BLUESPECDIR/Verilog/%s.v\n",
           unadorned.c_str(), unadorned.c_str());
 
       if (check_file_exists(filename)) {
-        Frontend::frontend_call(design, NULL, filename, "verilog");
+        read_verilog(design, NULL, filename, reset);
         goto loaded;
       }
 
@@ -108,62 +116,64 @@ void expand_bsv_libs(RTLIL::Design *design, RTLIL::Module *module) {
 }
 
 struct BsvFrontend : public Pass {
-  BsvFrontend() : Pass("read_bluespec", "compile and load Bluespec modules") {}
+  BsvFrontend() : Pass("read_bluespec", "typecheck, compile, and load Bluespec code") {}
   virtual void help()
   {
     log("\n");
-    log("    read_bluespec [options] <bsv-file>\n");
+    log("    read_bluespec [options] source.{bs,bsv}\n");
     log("\n");
-    log("This command reads the given BlueSpec Verilog file, compiles\n");
-    log("them using the 'bsc' compiler, and then reads the Verilog using\n");
-    log("Yosys Verilog frontend.\n");
+
+    log("Load modules from a Bluespec package. This uses the 'bsc' compiler in\n");
+    log("order to typecheck and compile the source code. Bluespec Haskell files\n");
+    log("(with .bs extension) and Bluespec SystemVerilog (resp. bsv) are supported.\n");
     log("\n");
-    log("The given input .bsv will be compiled using the bsv 'recursive'\n");
-    log("compilation mode, which will compile every module automatically.\n");
-    log("Therefore, you should run the 'bsv' command on the top-level\n");
-    log("module for your design, and specify the top BSV module output\n");
-    log("with the -top option. This module should be synthesizable.\n");
+
+    log("Compilation follows basic Bluespec rules: every individual module inside\n");
+    log("a package marked with a 'synthesize' attribute will be compiled to an\n");
+    log("individual RTL module, and each such module will be read into the current\n");
+    log("design.\n");
     log("\n");
+
+    log("By default, the frontend assumes the modules you want to synthesize are\n");
+    log("marked with 'synthesize' attributes, and will incorporate all such modules\n");
+    log("into the design by default, but if you wish to leave them un-attributed\n");
+    log("in the source code, or for simplicity, you can use the '-top' option to\n");
+    log("compile and read a single module from the source.\n");
+    log("\n");
+
     log("    -top <top-entity-name>\n");
-    log("        The name of the top entity. This option is mandatory.\n");
+    log("        By default, the frontend loads all individual modules marked with\n");
+    log("        'synthesize' attributes. If none exist, or you wish to only use\n");
+    log("        one particular module, this option can be used to select a single\n");
+    log("        Bluespec module to compile\n");
     log("\n");
+
+    log("    -reset {pos,neg}\n");
+    log("        Specify the module reset sensitivity. Compiled Bluespec designs\n");
+    log("        can use both positive or negative reset values for DUT reset.\n");
+    log("        When compiling a Bluespec design, this option can be used to\n");
+    log("        choose which to use. Note that this choice applies to all\n");
+    log("        Bluespec code.\n");
+    log("        \n");
+    log("        A positive reset value means that a value of '1' applied to the\n");
+    log("        reset line will put the device into reset. A negative reset by\n");
+    log("        contrast requires a '0' to put the device into reset.\n");
+    log("        \n");
+    log("        By default, compiled Bluespec modules use negative reset: a\n");
+    log("        value of 0 will put the device into reset.\n");
+    log("\n");
+
     log("    -no-autoload-bsv-prims\n");
-    log("        Do not incorporate the BlueSpec primitives for Verilog when\n");
-    log("        performing synthesis. Compiled BlueSpec designs use\n");
-    log("        the included set of primitives bundled with the compiler\n");
-    log("        and written in Verilog. For a full synthesis run, you will\n");
-    log("        need these libraries available.\n");
-    log("\n");
-    log("        By default, this frontend will load all Verilog designs\n");
-    log("        emitted by the BlueSpec compiler, then examine the RTL\n");
-    log("        in order to find unresolved modules used by active cells.\n");
-    log("        Then these modules will be searched for in the BlueSpec\n");
-    log("        Verilog primitive directory, under $BLUESPECDIR/Verilog\n");
-    log("\n");
-    log("        If a BSV design emits Verilog using an unresolved module\n");
-    log("        'FOO', the plugin will attempt to load the file\n");
-    log("        $BLUESPECDIR/Verilog/FOO.v in order to resolve it.\n");
-    log("        If this file does not implement the needed module, an\n");
-    log("        error will occur.\n");
-    log("\n");
-    log("        Conceptually, this option is very similar to an automatic\n");
-    log("        version of the '-libdir' option for the 'hierarchy' pass,\n");
-    log("        tailored for BlueSpec designs. However, when you are using\n");
-    log("        custom Verilog or integrating BSV into bespoke designs,\n");
-    log("        or implementing BSV interfaces with your own IP cores\n");
-    log("        and/or Verilog, this automation may get in the way.\n");
+    log("        Do not incorporate Verilog primitives during module compilation\n");
+    log("        Compiled Bluespec designs use the included set of primitives\n");
+    log("        written in Verilog and bundled with the compiler. For a full\n");
+    log("        synthesis run, you will need these libraries available.\n");
     log("\n");
     log("        If you pass the -no-autoload-bsv-prims flag, you will need\n");
-    log("        to later on specify where to find the missing BSV Verilog\n");
-    log("        primitives. This can be done using 'hierarchy -libdir' as\n");
-    log("        stated before, using the $BLUESPECDIR/Verilog directory.\n");
+    log("        to later on specify where to find the missing Verilog\n");
+    log("        primitives. This can be done using the 'hierarchy -libdir' pass\n");
+    log("        using the Bluespec compiler installation 'Verilog' subdirectory.\n");
     log("        Alternatively, you can load the required modules manually.\n");
-    log("\n");
-    log("        NOTE: while 'hierarchy -libdir' is the recommended way\n");
-    log("        of specifying how to load primitives manually, it is not\n");
-    log("        exposed by the default 'synth' script. Thus, you will need\n");
-    log("        to run 'hierarchy' first, before 'synth' runs its own\n");
-    log("        hierarchy pass.\n");
     log("\n");
 
     std::string bluespecdir = get_bluespecdir();
@@ -175,13 +185,14 @@ struct BsvFrontend : public Pass {
       log("            '%s/Verilog'\n",s);
     } else {
       log("        WARNING: BLUESPECDIR is not set! This might mean that\n");
-      log("        BlueSpec isn't installed, or is installed incorrectly.\n");
+      log("        Bluespec isn't installed, or is installed incorrectly.\n");
       log("        This plugin will not work as a result, failing with a\n");
       log("        really huge and cool explosion sound when you use it.\n");
     }
 
     log("\n");
-    log("        The value of this flag is false by default.\n");
+    log("        The value of this flag is false by default: compiled Bluespec\n");
+    log("        modules will have Verilog primitives loaded automatically.\n");
     log("\n");
     log("The following options are passed as-is to bsc:\n");
     log("\n");
@@ -191,12 +202,9 @@ struct BsvFrontend : public Pass {
     log("    -show-schedule\n");
     log("    -show-stats\n");
     log("\n");
-    log("By default, the BlueSpec compiler 'bsc' is invoked out of $PATH,\n");
+    log("By default, the Bluespec compiler 'bsc' is invoked out of $PATH,\n");
     log("but you may specify the BSC_PATH environment variable to specify\n");
     log("the exact location of the compiler.\n");
-    log("\n");
-    log("Visit http://www.bluespec.com and contact BlueSpec, Inc. for more\n");
-    log("information on BlueSpec Verilog.\n");
     log("\n");
   }
 
@@ -207,15 +215,16 @@ struct BsvFrontend : public Pass {
     std::string top_package;
     std::string compiler = get_compiler();
     bool no_bsv_autoload = false;
+    std::string reset_string = "-DBSV_NEGATIVE_RESET=1";
 
     if (get_bluespecdir() == "")
       log_cmd_error("The BLUESPECDIR environment variable isn't defined.\n"
-                    "This indicates BlueSpec might not be installed or\n"
+                    "This indicates Bluespec might not be installed or\n"
                     "not installed correctly. BLUESPECDIR is needed\n"
                     "to locate Verilog primitives correctly. Exiting\n"
                     "without performing synthesis.\n");
 
-    log_header(design, "Executing the BlueSpec compiler (with '%s').\n",
+    log_header(design, "Executing the Bluespec compiler (with '%s').\n",
                compiler.c_str());
     log_push();
 
@@ -223,6 +232,19 @@ struct BsvFrontend : public Pass {
     for (argidx = 1; argidx < args.size(); argidx++) {
       if (args[argidx] == "-top" && argidx+1 < args.size()) {
         top_entity = args[++argidx];
+        continue;
+      }
+
+      if (args[argidx] == "-reset" && argidx+1 < args.size()) {
+        if (args[argidx+1] == "pos") {
+          reset_string = "-DBSV_POSITIVE_RESET=1";
+        } else if (args[argidx+1] == "neg") {
+          reset_string = "-DBSV_NEGATIVE_RESET=1";
+        } else {
+          log_cmd_error("Invalid argument for -reset\n");
+        }
+
+        ++argidx;
         continue;
       }
 
@@ -257,18 +279,15 @@ struct BsvFrontend : public Pass {
 
     if (argidx == args.size())
       cmd_error(args, argidx, "Missing filename for top-level module.");
-    if (top_entity.empty())
-      log_cmd_error("Missing -top option.\n");
 
     top_package = args[argidx];
-    log_header(design, "Compiling BlueSpec module %s:%s to Verilog.\n",
-               top_package.c_str(), top_entity.c_str());
+    log_header(design, "Compiling Bluespec package %s\n", top_package.c_str());
 
     // Run the Bluespec compiler
     std::string temp_vdir = make_temp_dir("/tmp/yosys-bsv-v-XXXXXX");
     std::string temp_odir = make_temp_dir("/tmp/yosys-bsv-o-XXXXXX");
 
-    log("Compiling BlueSpec objects/verilog to %s:%s\n",
+    log("Compiling Bluespec objects/verilog to %s:%s\n",
         temp_odir.c_str(), temp_vdir.c_str());
 
     std::string command = "exec 2>&1; ";
@@ -280,7 +299,8 @@ struct BsvFrontend : public Pass {
       command = command + " " + a;
 
     command += stringf(" -verilog");
-    command += stringf(" -g '%s'", top_entity.c_str());
+    if (!top_entity.empty())
+      command += stringf(" -g '%s'", top_entity.c_str());
     command += stringf(" -u '%s'", top_package.c_str());
 
     log("Running \"%s\"...\n", command.c_str());
@@ -290,7 +310,7 @@ struct BsvFrontend : public Pass {
                 command.c_str(), ret);
 
     // Read all of the Verilog output
-    log_header(design, "Reading BlueSpec Verilog output.\n");
+    log_header(design, "Reading Bluespec compiler output.\n");
 
     auto files = glob_filename(temp_vdir + "/*.v");
     for (const auto& f : files) {
@@ -300,7 +320,7 @@ struct BsvFrontend : public Pass {
       if (ff.fail())
         log_error("Can't open bsc output file `%s'!\n", f.c_str());
 
-      Frontend::frontend_call(design, &ff, f, "verilog");
+      read_verilog(design, &ff, f, reset_string);
     }
 
     // Read all of the BSV Verilog libraries, unless told otherwise
@@ -315,7 +335,7 @@ struct BsvFrontend : public Pass {
         used_modules.insert(mod);
 
       for (const auto& mod : used_modules)
-        expand_bsv_libs(design, mod);
+        expand_bsv_libs(design, mod, reset_string);
     } else {
       log_header(design, "Not attempting autoload of BSV primitives.\n");
     }
