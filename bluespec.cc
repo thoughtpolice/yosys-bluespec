@@ -163,6 +163,18 @@ struct BsvFrontend : public Pass {
     log("        value of 0 will put the device into reset.\n");
     log("\n");
 
+    log("    -I <dir>\n");
+    log("        Add a directory to the Bluespec compiler search path.\n");
+    log("        This is useful when modules are loaded outside the CWD.\n");
+    log("        Modules specified here are searched in reverse priority order,\n");
+    log("        i.e. the last directory given is searched first. The Prelude is\n");
+    log("        searched last.\n");
+    log("\n");
+
+    log("    -no-prelude\n");
+    log("        Do not load the default Bluespec Prelude.\n");
+    log("\n");
+
     log("    -no-autoload-bsv-prims\n");
     log("        Do not incorporate Verilog primitives during module compilation\n");
     log("        Compiled Bluespec designs use the included set of primitives\n");
@@ -211,11 +223,14 @@ struct BsvFrontend : public Pass {
   virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
   {
     std::vector<std::string> bsc_args;
+    std::vector<std::string> bsc_search_dirs;
     std::string top_entity;
     std::string top_package;
     std::string compiler = get_compiler();
-    bool no_bsv_autoload = false;
     std::string reset_string = "-DBSV_NEGATIVE_RESET=1";
+
+    bool no_bsv_autoload = false;
+    bool bsc_no_prelude = false;
 
     if (get_bluespecdir() == "")
       log_cmd_error("The BLUESPECDIR environment variable isn't defined.\n"
@@ -227,6 +242,8 @@ struct BsvFrontend : public Pass {
     log_header(design, "Executing the Bluespec compiler (with '%s').\n",
                compiler.c_str());
     log_push();
+
+    bsc_search_dirs.push_back(".");
 
     size_t argidx;
     for (argidx = 1; argidx < args.size(); argidx++) {
@@ -253,6 +270,11 @@ struct BsvFrontend : public Pass {
         continue;
       }
 
+      if (args[argidx] == "-I" && argidx+1 < args.size()) {
+        bsc_search_dirs.push_back(args[++argidx]);
+        continue;
+      }
+
       if (args[argidx] == "-D" && argidx+1 < args.size()) {
         bsc_args.push_back("-D");
         bsc_args.push_back(args[++argidx]);
@@ -274,16 +296,35 @@ struct BsvFrontend : public Pass {
         continue;
       }
 
+      if (args[argidx] == "-no-prelude") {
+        bsc_no_prelude = true;
+        continue;
+      }
+
       break;
     }
 
     if (argidx == args.size())
       cmd_error(args, argidx, "Missing filename for top-level module.");
 
+    // set search path first
+    if (!bsc_no_prelude)
+      bsc_search_dirs.push_back("%/Libraries");
+
+    std::string full_search_path = "";
+    for (unsigned long i = 0, sz = bsc_search_dirs.size(); i < sz; i++) {
+      full_search_path += bsc_search_dirs[i];
+      if (i != sz-1) full_search_path += ":";
+    }
+
+    // NB: always of at least size == 1, bc '.' is always included
+    bsc_args.push_back("-p");
+    bsc_args.push_back("'" + full_search_path + "'");
+
+    // Run the Bluespec compiler
     top_package = args[argidx];
     log_header(design, "Compiling Bluespec package %s\n", top_package.c_str());
 
-    // Run the Bluespec compiler
     std::string temp_vdir = make_temp_dir("/tmp/yosys-bsv-v-XXXXXX");
     std::string temp_odir = make_temp_dir("/tmp/yosys-bsv-o-XXXXXX");
 
