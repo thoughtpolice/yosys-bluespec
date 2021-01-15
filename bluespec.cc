@@ -21,12 +21,16 @@ void read_verilog(RTLIL::Design *design, std::istream *ff, std::string f, std::s
 */
 std::string get_compiler(void)
 {
+#ifdef STATIC_BSC_PATH
+  return STATIC_BSC_PATH;
+#else
   char* e = getenv("BSC_PATH");
 
   if (e == nullptr)
     return "bsc";
   else
     return std::string(e);
+#endif
 }
 
 /*
@@ -35,6 +39,9 @@ std::string get_compiler(void)
 */
 std::string get_bluespecdir(void)
 {
+#ifdef STATIC_BSC_LIBDIR
+  return STATIC_BSC_LIBDIR;
+#else
   // [FIXME] (aseipp): we currently just pull `bluectl` out of the environment
   // without allowing an override (cf BSC_PATH). ideally we should fix bsc to
   // give us this path directly anyway
@@ -51,6 +58,7 @@ std::string get_bluespecdir(void)
   }
 
   return libdir;
+#endif
 }
 
 /*

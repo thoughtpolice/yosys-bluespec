@@ -14,6 +14,14 @@ SO=$(PLUGIN).so
 
 FINALDEST=$(DESTDIR)$(PREFIX)
 
+ifneq ($(STATIC_BSC_PATH),)
+CXXFLAGS+=-DSTATIC_BSC_PATH=\"$(STATIC_BSC_PATH)\"
+endif
+
+ifneq ($(STATIC_BSC_LIBDIR),)
+CXXFLAGS+=-DSTATIC_BSC_LIBDIR=\"$(STATIC_BSC_LIBDIR)\"
+endif
+
 $(SO): $(OBJ)
 	$(CXX) $(LDFLAGS) -shared -o $@ $^ $(LDLIBS)
 $(OBJ): $(SRC)
