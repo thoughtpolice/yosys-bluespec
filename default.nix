@@ -15,14 +15,19 @@ let
 in
   
 with bootstrap.pkgs;
+
 stdenv.mkDerivation {
   pname = "yosys-bluespec";
   inherit (bootstrap) version;
   src = lib.cleanSource ./.;
 
-  buildInputs = [ yosys readline zlib ];
-  nativeBuildInputs = [ pkgconfig bluespec ];
+  buildInputs = [ yosys readline zlib bluespec ];
+  nativeBuildInputs = [ pkgconfig ];
 
   doCheck = true;
-  makeFlags = [ "PREFIX=$(out)/share/yosys/plugins" ];
+  makeFlags = [
+    "PREFIX=$(out)/share/yosys/plugins"
+    "STATIC_BSC_PATH=${bluespec}/bin/bsc"
+    "STATIC_BSC_LIBDIR=${bluespec}/lib"
+  ];
 }

@@ -11,7 +11,7 @@ jobs:
   build:
     name: build all
     timeout-minutes: 360
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     strategy:
       matrix:
@@ -24,7 +24,7 @@ jobs:
         fetch-depth: 0
 
     - name: Install Nix
-      uses: cachix/install-nix-action@v6
+      uses: cachix/install-nix-action@v12
 
     - name: nix-build (for ${{ matrix.nixpkgs }})
       env:
