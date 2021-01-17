@@ -124,6 +124,16 @@ void expand_bsv_libs(RTLIL::Design *design, RTLIL::Module *module, std::string r
 }
 
 struct BsvFrontend : public Pass {
+private:
+  std::vector<std::string> passthru_flags = {
+    "-cpp",
+    "-check-assert",
+    "-show-schedule",
+    "-show-stats",
+    "-aggressive-conditions",
+  };
+
+public:
   BsvFrontend() : Pass("read_bluespec", "typecheck, compile, and load Bluespec code") {}
   virtual void help()
   {
@@ -214,13 +224,13 @@ struct BsvFrontend : public Pass {
     log("        The value of this flag is false by default: compiled Bluespec\n");
     log("        modules will have Verilog primitives loaded automatically.\n");
     log("\n");
-    log("The following options are passed as-is to bsc:\n");
+    log("The following options are passed as-is to bsc, if given:\n");
     log("\n");
     log("    -D <macro>\n");
-    log("    -cpp\n");
-    log("    -aggressive-conditions\n");
-    log("    -show-schedule\n");
-    log("    -show-stats\n");
+
+    for (auto flag : passthru_flags)
+      log("    %s\n", flag.c_str());
+
     log("\n");
     log("By default, the Bluespec compiler 'bsc' is invoked out of $PATH,\n");
     log("but you may specify the BSC_PATH environment variable to specify\n");
@@ -289,17 +299,7 @@ struct BsvFrontend : public Pass {
         continue;
       }
 
-      if (args[argidx] == "-aggressive-conditions") {
-        bsc_args.push_back(args[argidx]);
-        continue;
-      }
-
-      if (args[argidx] == "-show-schedule") {
-        bsc_args.push_back(args[argidx]);
-        continue;
-      }
-
-      if (args[argidx] == "-show-stats") {
+      if (std::find(passthru_flags.begin(), passthru_flags.end(), args[argidx]) != passthru_flags.end()) {
         bsc_args.push_back(args[argidx]);
         continue;
       }
