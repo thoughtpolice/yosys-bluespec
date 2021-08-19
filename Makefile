@@ -35,7 +35,7 @@ uninstall:
 	rm -f $(FINALDEST)/$(SO)
 
 check: $(SO)
-	yosys -s t/test.yosys
+	cd t && yosys -s test.yosys
 
 clean:
 	rm -f *.d *.o *.so *~

@@ -1,4 +1,4 @@
-plugin -i bluespec.so
-read_bluespec -top mkTest t/GCD.bsv
-prep
-write_verilog -attr2comment t/GCD.v
+plugin -i ../bluespec.so
+read_bluespec -top memoryTest MemoryTest.bsv
+synth_ice40 -top memoryTest
+write_verilog -attr2comment memoryTest.v

@@ -7,10 +7,12 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-void read_verilog(RTLIL::Design *design, std::istream *ff, std::string f, std::string reset_string)
+void read_verilog(RTLIL::Design *design, std::istream *ff, std::string f, std::string reset_string, bool defer = false)
 {
   std::vector<std::string> args;
   args.push_back("verilog");
+  if (defer)
+    args.push_back("-defer");
   args.push_back(reset_string);
   Frontend::frontend_call(design, ff, f, args);
 }
@@ -79,6 +81,7 @@ std::string get_bluespecdir(void)
 */
 void expand_bsv_libs(RTLIL::Design *design, RTLIL::Module *module, std::string reset) {
   std::string bluespecdir = get_bluespecdir();
+  std::set<std::string> seen;
 
   // Look over every cell...
   for (const auto &cell_it : module->cells_) {
@@ -92,33 +95,32 @@ void expand_bsv_libs(RTLIL::Design *design, RTLIL::Module *module, std::string r
       if (cell->type[0] == '$')
         continue;
 
-      // And try to find/load the Bluespec primitive
+      // And try to find/load the Bluespec primitive. Mark seen primitives and don't load
+      // them more than once, just because they get _used_ more than once.
       auto unadorned = RTLIL::unescape_id(cell->type);
+      if (seen.count(unadorned) > 0) continue;
+
+      // these modules use non-ANSI port aliases. see https://github.com/YosysHQ/yosys/issues/2613
+      if (unadorned == "InoutConnect" || unadorned == "ProbeHook") {
+        log_error("Bluespec Verilog module `%s', referenced in module `%s' in cell `%s', is unsupported by Yosys.\n"
+                  "See https://github.com/YosysHQ/yosys/issues/2613 for more information. Exiting unsuccessfully.\n",
+          unadorned.c_str(), module->name.c_str(), cell->name.c_str());
+      }
+
       auto filename  = bluespecdir + "/Verilog/" + unadorned + ".v";
       log("Looking for Verilog module '%s' in $BLUESPECDIR/Verilog/%s.v\n",
           unadorned.c_str(), unadorned.c_str());
 
       if (check_file_exists(filename)) {
-        read_verilog(design, NULL, filename, reset);
-        goto loaded;
+        read_verilog(design, NULL, filename, reset, true);
+        seen.insert(unadorned);
+      } else {
+        // If we got to this point, but we still have an unfound, non-Yosys
+        // cell name -- then the name couldn't be resolved, so we fail.
+        if (cell->type[0] != '$')
+          log_error("Module `%s' referenced in module `%s' in cell `%s' is not part of the design.\n",
+            cell->type.c_str(), module->name.c_str(), cell->name.c_str());
       }
-
-      // If we got to this point, but we still have an unfound, non-Yosys
-      // cell name -- then the name couldn't be resolved, so we fail.
-      if (cell->type[0] != '$')
-        log_error("Module `%s' referenced in module `%s' in cell `%s' is not part of the design.\n",
-						cell->type.c_str(), module->name.c_str(), cell->name.c_str());
-
-    loaded:
-      // Finally, do a sanity check: make sure the design has a module of
-      // the given cell type *somewhere*, to make sure it was read correctly.
-      // Otherwise, the search lookup was invalid.
-      if (design->modules_.count(cell->type) == 0)
-        log_error("File `%s' from $BLUESPECDIR/Verilog does not declare module `%s'.\n",
-                  unadorned.c_str(), cell->type.c_str());
-
-      // That'll do, pig
-      continue;
     }
   }
 }
