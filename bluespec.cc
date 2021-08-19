@@ -80,8 +80,124 @@ std::string get_bluespecdir(void)
 ** automatically loads BSV primitives.
 */
 void expand_bsv_libs(RTLIL::Design *design, RTLIL::Module *module, std::string reset) {
-  std::string bluespecdir = get_bluespecdir();
-  std::set<std::string> seen;
+  using namespace std;
+
+  string bluespecdir = get_bluespecdir();
+  set<string> seen;
+
+  set<string> bs_modules = {
+    "ASSIGN1",
+    "BRAM1",
+    "BRAM1BE",
+    "BRAM1BELoad",
+    "BRAM1Load",
+    "BRAM2",
+    "BRAM2BE",
+    "BRAM2BELoad",
+    "BRAM2Load",
+    "BypassCrossingWire",
+    "BypassWire",
+    "BypassWire0",
+    "CRegA5",
+    "CRegN5",
+    "CRegUN5",
+    "ClockDiv",
+    "ClockGater",
+    "ClockGen",
+    "ClockInverter",
+    "ClockMux",
+    "ClockSelect",
+    "ConfigRegA",
+    "ConfigRegN",
+    "ConfigRegUN",
+    "ConstrainedRandom",
+    "ConvertFromZ",
+    "ConvertToZ",
+    "Counter",
+    "CrossingBypassWire",
+    "CrossingRegA",
+    "CrossingRegN",
+    "CrossingRegUN",
+    "DualPortRam",
+    "Empty",
+    "FIFO1",
+    "FIFO10",
+    "FIFO2",
+    "FIFO20",
+    "FIFOL1",
+    "FIFOL10",
+    "FIFOL2",
+    "FIFOL20",
+    "Fork",
+    "GatedClock",
+    "GatedClockDiv",
+    "GatedClockInverter",
+    "InitialReset",
+    "InoutConnect",
+    "LatchCrossingReg",
+    "MakeClock",
+    "MakeReset",
+    "MakeReset0",
+    "MakeResetA",
+    "McpRegUN",
+    "ProbeCapture",
+    "ProbeHook",
+    "ProbeMux",
+    "ProbeTrigger",
+    "ProbeValue",
+    "ProbeWire",
+    "RWire",
+    "RWire0",
+    "RegA",
+    "RegAligned",
+    "RegFile",
+    "RegFileLoad",
+    "RegN",
+    "RegTwoA",
+    "RegTwoN",
+    "RegTwoUN",
+    "RegUN",
+    "ResetEither",
+    "ResetInverter",
+    "ResetMux",
+    "ResetToBool",
+    "ResolveZ",
+    "RevertReg",
+    "SampleReg",
+    "ScanIn",
+    "SizedFIFO",
+    "SizedFIFO0",
+    "SizedFIFOL",
+    "SizedFIFOL0",
+    "SyncBit",
+    "SyncBit05",
+    "SyncBit1",
+    "SyncBit15",
+    "SyncFIFO",
+    "SyncFIFO0",
+    "SyncFIFO1",
+    "SyncFIFO10",
+    "SyncFIFOLevel",
+    "SyncFIFOLevel0",
+    "SyncHandshake",
+    "SyncPulse",
+    "SyncRegister",
+    "SyncReset",
+    "SyncReset0",
+    "SyncResetA",
+    "SyncWire",
+    "TriState",
+    "UngatedClockMux",
+    "UngatedClockSelect",
+  };
+
+  // these modules are invalid and can't be handled by yosys, for whatever
+  // reason.
+  map<string, string> bad_modules = {
+    { "InoutConnect",      "non-ANSI port aliases aren't supported (issue #2613)"},
+    { "ProbeHook",         "non-ANSI port aliases aren't supported (issue #2613)"},
+    { "ConstrainedRandom", "simulation-only $random task isn't supported"},
+  };
 
   // Look over every cell...
   for (const auto &cell_it : module->cells_) {
@@ -95,16 +211,22 @@ void expand_bsv_libs(RTLIL::Design *design, RTLIL::Module *module, std::string r
       if (cell->type[0] == '$')
         continue;
 
+      auto unadorned = RTLIL::unescape_id(cell->type);
+
+      // Only load Bluespec modules; we don't want to interfere with user FFI modules...
+      if (bs_modules.count(unadorned) == 0) continue;
+
       // And try to find/load the Bluespec primitive. Mark seen primitives and don't load
       // them more than once, just because they get _used_ more than once.
-      auto unadorned = RTLIL::unescape_id(cell->type);
       if (seen.count(unadorned) > 0) continue;
 
-      // these modules use non-ANSI port aliases. see https://github.com/YosysHQ/yosys/issues/2613
-      if (unadorned == "InoutConnect" || unadorned == "ProbeHook") {
+      // these modules are invalid, so help users by telling them why
+      if (auto it { bad_modules.find(unadorned) }; it != end(bad_modules)) {
+        auto reason{it->second};
+
         log_error("Bluespec Verilog module `%s', referenced in module `%s' in cell `%s', is unsupported by Yosys.\n"
-                  "See https://github.com/YosysHQ/yosys/issues/2613 for more information. Exiting unsuccessfully.\n",
-          unadorned.c_str(), module->name.c_str(), cell->name.c_str());
+                  "Reason: %s. Exiting unsuccessfully.\n",
+          unadorned.c_str(), module->name.c_str(), cell->name.c_str(), reason.c_str());
       }
 
       auto filename  = bluespecdir + "/Verilog/" + unadorned + ".v";

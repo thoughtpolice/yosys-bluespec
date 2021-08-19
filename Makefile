@@ -25,7 +25,7 @@ endif
 $(SO): $(OBJ)
 	$(CXX) $(LDFLAGS) -shared -o $@ $^ $(LDLIBS)
 $(OBJ): $(SRC)
-	$(CXX) $(CXXFLAGS) -fPIC -c -o $@ $^
+	$(CXX) $(CXXFLAGS) -std=c++17 -fPIC -c -o $@ $^
 
 install: $(SO)
 	mkdir -p $(FINALDEST)
