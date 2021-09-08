@@ -38,6 +38,6 @@ check: $(SO)
 	cd t && yosys -s test.yosys
 
 clean:
-	rm -f *.d *.o *.so *~
+	rm -f *.d *.o *.so *~ t/*.v t/*.bo t/*.ba
 
 .PHONY: clean install uninstall
