@@ -1,4 +1,3 @@
 plugin -i ../bluespec.so
 read_bluespec -top memoryTest MemoryTest.bsv
-synth_ice40 -top memoryTest
-write_verilog -attr2comment memoryTest.v
+synth_ecp5 -abc9 -abc2 -top memoryTest
