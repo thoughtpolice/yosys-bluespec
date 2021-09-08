@@ -251,6 +251,7 @@ struct BsvFrontend : public Pass {
 private:
   std::vector<std::tuple<std::string, bool>> passthru_flags = {
     // flag -> does it take an argument?
+    { "-D",                     true  },
     { "-cpp",                   false },
     { "-check-assert",          false },
     { "-show-schedule",         false },
@@ -354,7 +355,6 @@ public:
     log("any arguments are parsed as a single token, so use quotes for spaces\n");
     log("if needed:\n");
     log("\n");
-    log("    -D <macro>\n");
 
     for (auto [ flag, has_param ] : passthru_flags)
       log("    %s\t%s\n", flag.c_str(), has_param ? "<param>" : "");
@@ -423,12 +423,6 @@ public:
 
       if (args[argidx] == "-no-prelude") {
         bsc_no_prelude = true;
-        continue;
-      }
-
-      if (args[argidx] == "-D" && argidx+1 < args.size()) {
-        bsc_args.push_back("-D");
-        bsc_args.push_back(args[++argidx]);
         continue;
       }
 
