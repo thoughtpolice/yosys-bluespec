@@ -257,6 +257,10 @@ private:
     { "-show-schedule",         false },
     { "-show-stats",            false },
     { "-aggressive-conditions", false },
+    // optimization flags
+    { "-remove-unused-modules", false },
+    { "-opt-undetermined-vals", false },
+    { "-unspecified-to",        true  },
   };
 
 public:
