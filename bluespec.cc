@@ -249,12 +249,13 @@ void expand_bsv_libs(RTLIL::Design *design, RTLIL::Module *module, std::string r
 
 struct BsvFrontend : public Pass {
 private:
-  std::vector<std::string> passthru_flags = {
-    "-cpp",
-    "-check-assert",
-    "-show-schedule",
-    "-show-stats",
-    "-aggressive-conditions",
+  std::vector<std::tuple<std::string, bool>> passthru_flags = {
+    // flag -> does it take an argument?
+    { "-cpp",                   false },
+    { "-check-assert",          false },
+    { "-show-schedule",         false },
+    { "-show-stats",            false },
+    { "-aggressive-conditions", false },
   };
 
 public:
@@ -348,12 +349,15 @@ public:
     log("        The value of this flag is false by default: compiled Bluespec\n");
     log("        modules will have Verilog primitives loaded automatically.\n");
     log("\n");
-    log("The following options are passed as-is to bsc, if given:\n");
+    log("The following options are passed as-is to bsc, if given, so please\n");
+    log("refer to the manual if necessary to understand their use. Note that\n");
+    log("any arguments are parsed as a single token, so use quotes for spaces\n");
+    log("if needed:\n");
     log("\n");
     log("    -D <macro>\n");
 
-    for (auto flag : passthru_flags)
-      log("    %s\n", flag.c_str());
+    for (auto [ flag, has_param ] : passthru_flags)
+      log("    %s\t%s\n", flag.c_str(), has_param ? "<param>" : "");
 
     log("\n");
     log("By default, the Bluespec compiler 'bsc' is invoked out of $PATH,\n");
@@ -417,23 +421,32 @@ public:
         continue;
       }
 
+      if (args[argidx] == "-no-prelude") {
+        bsc_no_prelude = true;
+        continue;
+      }
+
       if (args[argidx] == "-D" && argidx+1 < args.size()) {
         bsc_args.push_back("-D");
         bsc_args.push_back(args[++argidx]);
         continue;
       }
 
-      if (std::find(passthru_flags.begin(), passthru_flags.end(), args[argidx]) != passthru_flags.end()) {
-        bsc_args.push_back(args[argidx]);
-        continue;
-      }
-
-      if (args[argidx] == "-no-prelude") {
-        bsc_no_prelude = true;
-        continue;
+      for (auto [ flag, has_param ] : passthru_flags) {
+        if (args[argidx] == flag) {
+          if (has_param && argidx+1 < args.size()) {
+            bsc_args.push_back(args[  argidx]);
+            bsc_args.push_back(args[++argidx]);
+            goto loop;
+          } else if (!has_param) {
+            bsc_args.push_back(args[argidx]);
+            goto loop;
+          }
+        }
       }
 
       break;
+loop: continue; // this can't be a no-op? grammar nit, i guess
     }
 
     if (argidx == args.size())
