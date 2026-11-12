@@ -226,7 +226,7 @@ void expand_bsv_libs(RTLIL::Design *design, RTLIL::Module *module, std::string r
 
         log_error("Bluespec Verilog module `%s', referenced in module `%s' in cell `%s', is unsupported by Yosys.\n"
                   "Reason: %s. Exiting unsuccessfully.\n",
-          unadorned.c_str(), module->name.c_str(), cell->name.c_str(), reason.c_str());
+          unadorned.c_str(), module->name.str().c_str(), cell->name.str().c_str(), reason.c_str());
       }
 
       auto filename  = bluespecdir + "/Verilog/" + unadorned + ".v";
@@ -241,7 +241,7 @@ void expand_bsv_libs(RTLIL::Design *design, RTLIL::Module *module, std::string r
         // cell name -- then the name couldn't be resolved, so we fail.
         if (cell->type[0] != '$')
           log_error("Module `%s' referenced in module `%s' in cell `%s' is not part of the design.\n",
-            cell->type.c_str(), module->name.c_str(), cell->name.c_str());
+            cell->type.str().c_str(), module->name.str().c_str(), cell->name.str().c_str());
       }
     }
   }
